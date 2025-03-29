@@ -1,3 +1,5 @@
+// Set default zoom level to 90%
+document.body.style.zoom = "90%";
 
 // Wait for DOM to be fully loaded
 document.addEventListener('DOMContentLoaded', function() {
@@ -134,15 +136,29 @@ document.querySelectorAll('.keyboard-key').forEach(key => {
         if (keyText === 'Sil') {
             playerNameInput.value = playerNameInput.value.slice(0, -1);
         } else if (keyText === 'Boşluk') {
-            playerNameInput.value += ' ';
+            if (playerNameInput.value.length < 11) {
+                playerNameInput.value += ' ';
+            }
         } else if (keyText === 'Tamam') {
             onScreenKeyboard.style.display = 'none';
         } else if (keyText === 'Türkçe') {
             // Handle Turkish character toggle if needed
         } else {
-            playerNameInput.value += keyText;
+            if (playerNameInput.value.length < 11) {
+                playerNameInput.value += keyText;
+            }
         }
     });
+});
+
+// Add maxlength attribute to input
+playerNameInput.setAttribute('maxlength', '11');
+
+// Add input event listener to enforce character limit
+playerNameInput.addEventListener('input', function() {
+    if (this.value.length > 11) {
+        this.value = this.value.slice(0, 11);
+    }
 });
 
 function initGame() {
@@ -459,7 +475,7 @@ function saveScore() {
         }
         return a.time - b.time;
     });
-    highScores = highScores.slice(0, 10); // Keep only top 10 scores
+    highScores = highScores.slice(0, 7); // Keep only top 7 scores
 }
 
 // Update high scores table
@@ -639,7 +655,8 @@ changeLogoBtn.addEventListener('click', function() {
 deleteLogoBtn.addEventListener('click', function() {
     localStorage.removeItem('bottomPanelLogo');
     logoPreview.style.backgroundImage = 'none';
-    logoImg.src = 'logo.png'; // Reset to default logo
+    logoImg.style.display = 'none'; // Hide the logo image
+    document.querySelector('.logo-container').style.display = 'none'; // Hide the logo container
 });
 
 // Load saved card front image
