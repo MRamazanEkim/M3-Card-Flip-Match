@@ -16,11 +16,32 @@
         <div id="settings-panel">
             <h3>Ayarlar</h3>
             <div class="settings-group">
+                <label>Ekran Yönü:</label>
+                <div class="orientation-options">
+                    <div class="orientation-option selected" data-orientation="vertical">Dikey</div>
+                    <div class="orientation-option" data-orientation="horizontal">Yatay</div>
+                </div>
+            </div>
+            <div class="settings-group">
+                <label>Oyun Başlığı Değiştirme:</label>
+                <div class="title-controls">
+                    <input type="text" id="game-title-input" placeholder="Oyun başlığını girin">
+                    <button id="change-title-btn">Yazıyı Değiştir</button>
+                </div>
+            </div>
+            <div class="settings-group">
                 <label>Kart Sayısı Seçimi:</label>
                 <div class="card-options">
                     <div class="card-option selected" data-cards="8">8 Kart</div>
                     <div class="card-option" data-cards="12">12 Kart</div>
                     <div class="card-option" data-cards="16">16 Kart</div>
+                </div>
+            </div>
+            <div class="settings-group">
+                <label>Skor Tablosu Rengi:</label>
+                <div class="score-color-options">
+                    <div class="score-color-option selected" data-color="black">Siyah</div>
+                    <div class="score-color-option" data-color="white">Beyaz</div>
                 </div>
             </div>
             <div class="settings-group">
@@ -185,7 +206,7 @@
     
     <div class="bottom-panel">
         <div class="logo-container">
-            <img src="logo.png" alt="Logo" class="logo">
+            <img src="logo.png" alt="" class="logo">
         </div>
     </div>
     

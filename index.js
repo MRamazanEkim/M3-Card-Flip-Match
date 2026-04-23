@@ -15,6 +15,8 @@ let canFlip = true;
 let matchedPairs = 0;
 let totalPairs = 4; // Default is 8 cards (4 pairs)
 let cardCount = 8; // Default card count
+let orientation = localStorage.getItem('gameOrientation') || 'vertical'; // Default orientation
+let scoreTableColor = localStorage.getItem('scoreTableColor') || 'black'; // Default score table color
 let highScores = []; // Store scores in memory instead of localStorage
 let cardImages = JSON.parse(localStorage.getItem('cardImages')) || [];
 
@@ -36,16 +38,32 @@ const scoresTableBody = document.getElementById('scores-table-body');
 const settingsButton = document.getElementById('settings-button');
 const settingsPanel = document.getElementById('settings-panel');
 const cardOptions = document.querySelectorAll('.card-option');
+const orientationOptions = document.querySelectorAll('.orientation-option');
 const settingsOverlay = document.getElementById('settings-overlay');
 const imageUpload = document.getElementById('image-upload');
 const uploadedImagesGrid = document.getElementById('uploaded-images');
 const onScreenKeyboard = document.getElementById('on-screen-keyboard');
+const gameTitleInput = document.getElementById('game-title-input');
+const changeTitleBtn = document.getElementById('change-title-btn');
+const gameTitle = document.querySelector('#welcome-screen h1');
+const scoreColorOptions = document.querySelectorAll('.score-color-option');
 
 // Card symbols (using emoji for simplicity)
 const symbols = ['🍎', '🍌', '🍒', '🍇', '🍊', '🍓', '🍑', '🥝', '🥥', '🍍', '🥭', '🍈'];
 
 // Initialize the game
 initGame();
+
+// Also load game title and score table color when window is fully loaded (for Electron compatibility)
+window.addEventListener('load', function() {
+    // Ensure game title and score table color are loaded after window is fully loaded
+    setTimeout(function() {
+        if (gameTitle && gameTitleInput) {
+            loadGameTitle();
+        }
+        applyScoreTableColor();
+    }, 100);
+});
 
 // Toggle settings panel with CTRL key
 document.addEventListener('keydown', function(e) {
@@ -63,6 +81,22 @@ settingsOverlay.addEventListener('click', function() {
     settingsOverlay.style.display = 'none';
 });
 
+// Handle orientation selection
+orientationOptions.forEach(option => {
+    option.addEventListener('click', function(e) {
+        e.stopPropagation(); // Prevent event from bubbling up
+        orientationOptions.forEach(opt => opt.classList.remove('selected'));
+        this.classList.add('selected');
+        orientation = this.dataset.orientation;
+        localStorage.setItem('gameOrientation', orientation);
+        
+        // If game is in progress, restart with new orientation
+        if (gameContainer.style.display === 'block') {
+            startGame();
+        }
+    });
+});
+
 // Handle card count selection
 cardOptions.forEach(option => {
     option.addEventListener('click', function(e) {
@@ -76,6 +110,18 @@ cardOptions.forEach(option => {
         if (gameContainer.style.display === 'block') {
             startGame();
         }
+    });
+});
+
+// Handle score table color selection
+scoreColorOptions.forEach(option => {
+    option.addEventListener('click', function(e) {
+        e.stopPropagation(); // Prevent event from bubbling up
+        scoreColorOptions.forEach(opt => opt.classList.remove('selected'));
+        this.classList.add('selected');
+        scoreTableColor = this.dataset.color;
+        localStorage.setItem('scoreTableColor', scoreTableColor);
+        applyScoreTableColor();
     });
 });
 
@@ -166,11 +212,74 @@ function initGame() {
     updateHighScoresTable();
     startGameBtn.addEventListener('click', startGame);
     
+    // Set initial orientation from saved value
+    const selectedOrientationOption = document.querySelector(`.orientation-option[data-orientation="${orientation}"]`);
+    if (selectedOrientationOption) {
+        orientationOptions.forEach(opt => opt.classList.remove('selected'));
+        selectedOrientationOption.classList.add('selected');
+    }
+    
+    // Apply initial orientation class to body
+    document.body.classList.remove('horizontal');
+    if (orientation === 'horizontal') {
+        document.body.classList.add('horizontal');
+    }
+    
     // Set initial card count from selected option
     const selectedOption = document.querySelector('.card-option.selected');
     if (selectedOption) {
         cardCount = parseInt(selectedOption.dataset.cards);
         totalPairs = cardCount / 2;
+    }
+    
+    // Set initial score table color from saved value
+    const selectedScoreColorOption = document.querySelector(`.score-color-option[data-color="${scoreTableColor}"]`);
+    if (selectedScoreColorOption) {
+        scoreColorOptions.forEach(opt => opt.classList.remove('selected'));
+        selectedScoreColorOption.classList.add('selected');
+    }
+    applyScoreTableColor();
+    
+    // Load saved game title
+    loadGameTitle();
+    
+    // Handle title change button
+    changeTitleBtn.addEventListener('click', function() {
+        const newTitle = gameTitleInput.value.trim();
+        if (newTitle) {
+            gameTitle.textContent = newTitle;
+            try {
+                localStorage.setItem('gameTitle', newTitle);
+            } catch (e) {
+                console.error('Error saving game title:', e);
+            }
+        }
+    });
+}
+
+// Function to load game title from localStorage
+function loadGameTitle() {
+    try {
+        const savedTitle = localStorage.getItem('gameTitle');
+        if (savedTitle && savedTitle.trim() !== '') {
+            gameTitle.textContent = savedTitle;
+            if (gameTitleInput) {
+                gameTitleInput.value = savedTitle;
+            }
+        }
+    } catch (e) {
+        console.error('Error loading game title:', e);
+    }
+}
+
+// Function to apply score table color theme
+function applyScoreTableColor() {
+    if (scoresTableBody) {
+        if (scoreTableColor === 'white') {
+            scoresTableBody.classList.add('white-theme');
+        } else {
+            scoresTableBody.classList.remove('white-theme');
+        }
     }
 }
 
@@ -241,6 +350,14 @@ function createGameBoard() {
     
     // Set the data attribute for grid rows
     gameBoard.setAttribute('data-cards', cardCount);
+    
+    // Apply orientation class
+    gameBoard.classList.remove('horizontal');
+    document.body.classList.remove('horizontal');
+    if (orientation === 'horizontal') {
+        gameBoard.classList.add('horizontal');
+        document.body.classList.add('horizontal');
+    }
     
     // Get available images or use default symbols
     let cardValues;
@@ -475,7 +592,7 @@ function saveScore() {
         }
         return a.time - b.time;
     });
-    highScores = highScores.slice(0, 7); // Keep only top 7 scores
+    highScores = highScores.slice(0, 10); // Keep only top 10 scores
 }
 
 // Update high scores table
@@ -519,6 +636,10 @@ const savedBackgroundColor = localStorage.getItem('backgroundColor') || '#f0f8ff
 
 if (savedBackground) {
     backgroundPreview.style.backgroundImage = `url(${savedBackground})`;
+    // Apply saved background to document body on app start
+    document.body.style.backgroundImage = `url(${savedBackground})`;
+    document.body.style.backgroundSize = 'cover';
+    document.body.style.backgroundPosition = 'center';
 } else {
     backgroundPreview.style.backgroundColor = savedBackgroundColor;
 }
@@ -607,6 +728,9 @@ const savedLogo = localStorage.getItem('bottomPanelLogo');
 if (savedLogo) {
     logoPreview.style.backgroundImage = `url(${savedLogo})`;
     logoImg.src = savedLogo;
+    // Ensure logo container is visible when logo is loaded
+    logoImg.style.display = 'block';
+    document.querySelector('.logo-container').style.display = 'flex';
 }
 
 // Handle logo upload
@@ -655,8 +779,9 @@ changeLogoBtn.addEventListener('click', function() {
 deleteLogoBtn.addEventListener('click', function() {
     localStorage.removeItem('bottomPanelLogo');
     logoPreview.style.backgroundImage = 'none';
-    logoImg.style.display = 'none'; // Hide the logo image
-    document.querySelector('.logo-container').style.display = 'none'; // Hide the logo container
+    logoImg.src = 'logo.png'; // Reset to default logo
+    logoImg.style.display = 'block'; // Show the logo image
+    document.querySelector('.logo-container').style.display = 'flex'; // Show the logo container
 });
 
 // Load saved card front image
