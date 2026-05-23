@@ -841,29 +841,55 @@ const timeDisplay = document.getElementById('time-display');
 const decreaseTimeBtn = document.getElementById('decrease-time');
 const increaseTimeBtn = document.getElementById('increase-time');
 
+// Time bounds
+const MIN_TIME = 10;
+const MAX_TIME = 600;
+const TIME_STEP = 1;
+
+function clampTime(value) {
+    if (isNaN(value)) return 60;
+    return Math.min(MAX_TIME, Math.max(MIN_TIME, Math.round(value)));
+}
+
+function setGameTime(newTime) {
+    const clamped = clampTime(newTime);
+    timeDisplay.value = clamped;
+    localStorage.setItem('gameTime', clamped);
+    timeLeft = clamped;
+    return clamped;
+}
+
 // Load saved time
-const savedTime = localStorage.getItem('gameTime') || '60';
-timeDisplay.textContent = savedTime;
-timeLeft = parseInt(savedTime);
+const savedTime = parseInt(localStorage.getItem('gameTime')) || 60;
+setGameTime(savedTime);
 
 // Handle time adjustment
 decreaseTimeBtn.addEventListener('click', function() {
-    const currentTime = parseInt(timeDisplay.textContent);
-    if (currentTime > 20) {
-        const newTime = currentTime - 10;
-        timeDisplay.textContent = newTime;
-        localStorage.setItem('gameTime', newTime);
-        timeLeft = newTime;
-    }
+    setGameTime(parseInt(timeDisplay.value) - TIME_STEP);
 });
 
 increaseTimeBtn.addEventListener('click', function() {
-    const currentTime = parseInt(timeDisplay.textContent);
-    if (currentTime < 60) {
-        const newTime = currentTime + 10;
-        timeDisplay.textContent = newTime;
-        localStorage.setItem('gameTime', newTime);
-        timeLeft = newTime;
+    setGameTime(parseInt(timeDisplay.value) + TIME_STEP);
+});
+
+// Live typed input
+timeDisplay.addEventListener('input', function() {
+    const v = parseInt(timeDisplay.value);
+    if (!isNaN(v)) {
+        localStorage.setItem('gameTime', v);
+        timeLeft = v;
+    }
+});
+
+// Clamp on blur / Enter
+timeDisplay.addEventListener('blur', function() {
+    setGameTime(parseInt(timeDisplay.value));
+});
+timeDisplay.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        setGameTime(parseInt(timeDisplay.value));
+        timeDisplay.blur();
     }
 });
 });
