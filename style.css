@@ -976,6 +976,7 @@ body.horizontal .welcome-form {
     border-top: 0.0625rem solid rgba(255, 255, 255, 0); /* 1px */
     height: 4.375rem; /* 150px */
     top: 105.5rem; /* 1400px */
+    pointer-events: none; /* let clicks pass through to cards underneath */
 }
 
 .logo-container {
