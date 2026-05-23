@@ -77,6 +77,20 @@
                     <div id="uploaded-images" class="uploaded-images-grid"></div>
                 </div>
             </div>
+            <div class="settings-group">
+                <label>Ödül Sistemi (Doğru cevap sayısını girin örn:0-3, 4-6...):</label>
+                <div id="reward-list" class="reward-list"></div>
+                <div class="reward-form">
+                    <input type="number" id="reward-min" placeholder="Min doğru (0-8)" min="0" max="8" autocomplete="off">
+                    <input type="number" id="reward-max" placeholder="Maks doğru (0-8)" min="0" max="8" autocomplete="off">
+                    <input type="text" id="reward-name" placeholder="Ödül adı" autocomplete="off">
+                    <div class="reward-image-row">
+                        <input type="file" id="reward-image" accept="image/*">
+                        <div id="reward-image-preview" class="reward-image-preview"></div>
+                    </div>
+                    <button type="button" id="add-reward-btn">Ödül Ekle</button>
+                </div>
+            </div>
             <div class="background-options">
                 <h4>Arka Plan Ayarları</h4>
                 <div class="background-preview" id="background-preview"></div>
@@ -196,11 +210,23 @@
                 <span class="result-label">Süre:</span>
                 <span id="final-time"></span> saniye
             </div>
+            <div id="reward-display" class="reward-display" style="display:none;">
+                <h3>Kazandığın Ödül</h3>
+                <img id="reward-image-display" src="" alt="">
+                <div id="reward-name-display"></div>
+            </div>
         </div>
         
         <!-- Countdown Overlay -->
         <div class="countdown-overlay" id="countdown-overlay">
             <div class="countdown-text" id="countdown-text"></div>
+        </div>
+
+        <!-- Custom alert modal (replaces native alert to avoid focus loss in Electron) -->
+        <div id="custom-alert-overlay"></div>
+        <div id="custom-alert">
+            <div id="custom-alert-msg"></div>
+            <button type="button" id="custom-alert-ok">Tamam</button>
         </div>
     </div>
     

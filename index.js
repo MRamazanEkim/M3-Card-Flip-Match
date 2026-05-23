@@ -287,7 +287,7 @@ function applyScoreTableColor() {
 function startGame() {
     playerName = playerNameInput.value.trim();
     if (!playerName) {
-        alert('Lütfen adınızı girin!');
+        showAlert('Lütfen adınızı girin!');
         return;
     }
     
@@ -549,19 +549,31 @@ function showGameOver() {
     finalPlayer.textContent = playerName;
     finalScore.textContent = score;
     finalTime.textContent = timeSpent; // Show total time spent in scoreboard
-    
+
     // Show popup and overlay
     popupOverlay.style.display = 'block';
     gameOverPopup.style.display = 'block';
-    
+
     // Save score
     saveScore();
-    
+
     // Update high scores table
     updateHighScoresTable();
-    
-    // Set timeout to return to welcome screen
-    setTimeout(returnToWelcome, 4000);
+
+    // Show matched reward (if any defined)
+    let hasReward = false;
+    if (typeof window.__showRewardForScore === 'function') {
+        window.__showRewardForScore(score);
+        const rd = document.getElementById('reward-display');
+        hasReward = rd && rd.style.display === 'block';
+    }
+
+    // Celebratory title when reward won
+    const title = gameOverPopup.querySelector('h2');
+    if (title) title.textContent = hasReward ? 'Tebrikler!' : 'Oyun Bitti';
+
+    // Set timeout to return to welcome screen (longer if reward shown for photo enjoyment)
+    setTimeout(returnToWelcome, hasReward ? 9000 : 4000);
 }
 
 // Return to welcome screen
@@ -571,7 +583,11 @@ function returnToWelcome() {
     gameOverPopup.style.display = 'none';
     gameContainer.style.display = 'none';
     document.querySelector('.bottom-panel').style.display = 'none';
-    
+
+    // Hide reward display so next round opens clean
+    const rd = document.getElementById('reward-display');
+    if (rd) rd.style.display = 'none';
+
     // Show welcome screen
     welcomeScreen.style.display = 'block';
 }
@@ -892,4 +908,268 @@ timeDisplay.addEventListener('keydown', function(e) {
         timeDisplay.blur();
     }
 });
+
+// ========= Custom alert (replaces native alert to avoid Electron focus loss) =========
+const customAlertOverlay = document.getElementById('custom-alert-overlay');
+const customAlertBox = document.getElementById('custom-alert');
+const customAlertMsg = document.getElementById('custom-alert-msg');
+const customAlertOk = document.getElementById('custom-alert-ok');
+let _alertPrevFocus = null;
+let _alertCallback = null;
+
+function showAlert(message, callback) {
+    _alertPrevFocus = document.activeElement;
+    _alertCallback = typeof callback === 'function' ? callback : null;
+    customAlertMsg.textContent = message;
+    customAlertOverlay.style.display = 'block';
+    customAlertBox.style.display = 'block';
+    // Defer focus so click that opened it doesn't trip Enter handler
+    setTimeout(() => customAlertOk.focus(), 0);
+}
+
+function closeAlert() {
+    customAlertOverlay.style.display = 'none';
+    customAlertBox.style.display = 'none';
+    const cb = _alertCallback;
+    _alertCallback = null;
+    // Restore focus to whatever the user was editing before
+    if (_alertPrevFocus && typeof _alertPrevFocus.focus === 'function') {
+        try { _alertPrevFocus.focus(); } catch (e) {}
+    }
+    _alertPrevFocus = null;
+    if (cb) cb();
+}
+
+customAlertOk.addEventListener('click', closeAlert);
+customAlertOverlay.addEventListener('click', closeAlert);
+document.addEventListener('keydown', function(e) {
+    if (customAlertBox.style.display === 'block' && (e.key === 'Enter' || e.key === 'Escape')) {
+        e.preventDefault();
+        closeAlert();
+    }
+});
+
+// ========= Reward system =========
+const rewardList = document.getElementById('reward-list');
+const rewardMinInput = document.getElementById('reward-min');
+const rewardMaxInput = document.getElementById('reward-max');
+const rewardNameInput = document.getElementById('reward-name');
+let rewardImageInput = document.getElementById('reward-image');
+const addRewardBtn = document.getElementById('add-reward-btn');
+const rewardDisplay = document.getElementById('reward-display');
+const rewardImageDisplay = document.getElementById('reward-image-display');
+const rewardNameDisplay = document.getElementById('reward-name-display');
+
+let rewards = JSON.parse(localStorage.getItem('rewards') || '[]');
+
+function saveRewards() {
+    try {
+        localStorage.setItem('rewards', JSON.stringify(rewards));
+    } catch (err) {
+        console.warn('Reward kaydedilemedi:', err);
+        showAlert('Depolama dolu. Resim çok büyük olabilir, daha küçük bir resim deneyin.');
+    }
+}
+
+function renderRewards() {
+    rewardList.innerHTML = '';
+    if (rewards.length === 0) {
+        rewardList.innerHTML = '<div style="font-size:12px;color:#888;">Henüz ödül tanımlanmadı.</div>';
+        return;
+    }
+    const sorted = [...rewards].sort((a, b) => a.min - b.min);
+    sorted.forEach(r => {
+        const row = document.createElement('div');
+        row.className = 'reward-row';
+
+        const img = document.createElement('img');
+        if (r.image) img.src = r.image;
+
+        const range = document.createElement('span');
+        range.className = 'reward-range';
+        range.textContent = `${r.min}-${r.max}`;
+
+        const label = document.createElement('span');
+        label.className = 'reward-label';
+        label.textContent = r.name;
+
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.textContent = 'Sil';
+        delBtn.addEventListener('click', function() {
+            rewards = rewards.filter(x => x.id !== r.id);
+            saveRewards();
+            renderRewards();
+        });
+
+        row.appendChild(img);
+        row.appendChild(range);
+        row.appendChild(label);
+        row.appendChild(delBtn);
+        rewardList.appendChild(row);
+    });
+}
+
+// If value lies inside any existing reward range, push it to (that range.max + 1).
+// Loops so cascading overlaps (e.g. 3-6 and 7-10) resolve in one call.
+function snapAwayFromRanges(v) {
+    if (isNaN(v)) return v;
+    let guard = 0;
+    let changed = true;
+    while (changed && guard++ < 100) {
+        changed = false;
+        for (const r of rewards) {
+            if (v >= r.min && v <= r.max) {
+                v = r.max + 1;
+                changed = true;
+                break;
+            }
+        }
+    }
+    return v;
+}
+
+function addReward(min, max, name, image) {
+    // Pre-snap so direct submit without blur still corrects.
+    const snappedMin = snapAwayFromRanges(min);
+    const snappedMax = snapAwayFromRanges(max);
+    if (snappedMin !== min) rewardMinInput.value = snappedMin;
+    if (snappedMax !== max) rewardMaxInput.value = snappedMax;
+    min = snappedMin;
+    max = snappedMax;
+
+    if (isNaN(min) || isNaN(max) || min < 0 || max < min) {
+        showAlert('Geçerli bir doğru sayısı aralığı girin (Maks >= Min, mevcut aralıklarla çakışmamalı).');
+        return false;
+    }
+    if (min > 8 || max > 8) {
+        showAlert('Doğru sayısı 8\'den büyük olamaz (oyunda en fazla 8 doğru yapılabilir).');
+        return false;
+    }
+    if (!name) {
+        showAlert('Ödül adı girin.');
+        return false;
+    }
+    rewards.push({
+        id: Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+        min: min,
+        max: max,
+        name: name,
+        image: image || ''
+    });
+    saveRewards();
+    renderRewards();
+    return true;
+}
+
+// Live snap on blur: cap at 8, then jump past existing ranges.
+function bindSnapOnBlur(inputEl, label) {
+    inputEl.addEventListener('change', function() {
+        let raw = parseInt(inputEl.value);
+        if (isNaN(raw)) return;
+        if (raw > 8) {
+            inputEl.value = 8;
+            showAlert(`${label} en fazla 8 olabilir, 8 olarak ayarlandı.`);
+            raw = 8;
+        }
+        if (raw < 0) {
+            inputEl.value = 0;
+            raw = 0;
+        }
+        const snapped = snapAwayFromRanges(raw);
+        if (snapped !== raw) {
+            if (snapped > 8) {
+                showAlert(`${label} ${raw} mevcut bir aralıkta, sonraki uygun değer 8'i aşıyor. Mevcut ödülleri silin.`);
+                inputEl.value = '';
+                return;
+            }
+            inputEl.value = snapped;
+            showAlert(`${label} ${raw} mevcut bir ödül aralığında, ${snapped} olarak ayarlandı.`);
+        }
+    });
+}
+bindSnapOnBlur(rewardMinInput, 'Min skor');
+bindSnapOnBlur(rewardMaxInput, 'Maks skor');
+
+const rewardImagePreview = document.getElementById('reward-image-preview');
+
+function attachImageChangeListener() {
+    rewardImageInput.addEventListener('change', function() {
+        const f = rewardImageInput.files && rewardImageInput.files[0];
+        if (!f) {
+            rewardImagePreview.style.backgroundImage = '';
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            rewardImagePreview.style.backgroundImage = `url(${ev.target.result})`;
+        };
+        reader.readAsDataURL(f);
+    });
+}
+attachImageChangeListener();
+
+function resetRewardForm() {
+    rewardMinInput.value = '';
+    rewardMaxInput.value = '';
+    rewardNameInput.value = '';
+    // Rebuild file input from scratch (clone keeps file state in some Electron builds).
+    const fresh = document.createElement('input');
+    fresh.type = 'file';
+    fresh.id = 'reward-image';
+    fresh.accept = 'image/*';
+    rewardImageInput.parentNode.replaceChild(fresh, rewardImageInput);
+    rewardImageInput = fresh;
+    attachImageChangeListener();
+    rewardImagePreview.style.backgroundImage = '';
+    rewardMinInput.focus();
+}
+
+addRewardBtn.addEventListener('click', function() {
+    const min = parseInt(rewardMinInput.value);
+    const max = parseInt(rewardMaxInput.value);
+    const name = rewardNameInput.value.trim();
+    const file = rewardImageInput.files && rewardImageInput.files[0];
+
+    if (!file) {
+        showAlert('Lütfen bu ödül için bir resim seçin.');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+        if (addReward(min, max, name, ev.target.result)) {
+            resetRewardForm();
+        }
+    };
+    reader.readAsDataURL(file);
+});
+
+function findRewardForScore(s) {
+    // Stored min/max are correct-answer counts (0-16). Score = correct * 10.
+    // Range inclusive on both ends.
+    const sorted = [...rewards].sort((a, b) => a.min - b.min);
+    return sorted.find(r => s >= r.min * 10 && s <= r.max * 10) || null;
+}
+
+function showRewardForScore(s) {
+    const r = findRewardForScore(s);
+    if (!r) {
+        rewardDisplay.style.display = 'none';
+        return;
+    }
+    rewardNameDisplay.textContent = r.name;
+    if (r.image) {
+        rewardImageDisplay.src = r.image;
+        rewardImageDisplay.style.display = '';
+    } else {
+        rewardImageDisplay.style.display = 'none';
+    }
+    rewardDisplay.style.display = 'block';
+}
+
+// Expose for showGameOver
+window.__showRewardForScore = showRewardForScore;
+
+renderRewards();
 });
